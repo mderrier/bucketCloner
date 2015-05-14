@@ -1,0 +1,27 @@
+{
+  "name": "bucketCloner",
+  "version": "0.2.0",
+  "description": "Copy your S3 buckets crazy fast!",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "s3",
+    "bucket"
+  ],
+  "author": "Brad Isbell <bisbell@homefinder.com>",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1.26",
+    "yargs": "^3.8.0"
+  },
+  "preferGlobal": true,
+  "bin": {
+    "bucketcloner": "app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:Homefinder/bucketCloner.git"
+  }
+}
