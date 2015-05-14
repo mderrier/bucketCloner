@@ -8,7 +8,7 @@ to do that yourself if necessary.
 ## Installation / Setup
 bucketCloner requires Node.js.  It has been tested on v0.12.x.
 
-1. `npm install -g bucketCloner`
+1. `npm install -g bucket-cloner`
 1. Configure your AWS credentials on your system.  http://aws.amazon.com/sdk-for-node-js/
 
 ## Usage
