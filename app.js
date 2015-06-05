@@ -18,6 +18,20 @@ var progress = {
   bytesTransferred: 0
 }
 
+function outputStatus() {
+  var uptime = process.uptime();
+  console.log({
+    uptime: uptime,
+    listBufferSize: objectsToCopy.length,
+    succeeded: progress.succeeded,
+    failed: progress.failed,
+    gigabytesTransferred: progress.bytesTransferred/1024/1024/1024,
+    megabitsPerSecond: ((progress.bytesTransferred/1024/1024) * 8) / uptime,
+    objectsPerSecond: progress.succeeded / uptime,
+    marker: nextMarker
+  });
+}
+
 function startRequest() {
   currentRequests++;
   var objectToCopy = objectsToCopy.pop();
@@ -127,17 +141,5 @@ var s3 = new AWS.S3();
 
 startRequests();
 
-setInterval(function () {
-  var uptime = process.uptime();
-  console.log({
-    uptime: uptime,
-    listBufferSize: objectsToCopy.length,
-    succeeded: progress.succeeded,
-    failed: progress.failed,
-    gigabytesTransferred: progress.bytesTransferred/1024/1024/1024,
-    megabitsPerSecond: ((progress.bytesTransferred/1024/1024) * 8) / uptime,
-    objectsPerSecond: progress.succeeded / uptime,
-    marker: nextMarker
-  });
-
-}, 1000);
+setInterval(outputStatus, 1000).unref();
+process.on('exit', outputStatus);
