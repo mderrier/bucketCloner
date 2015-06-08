@@ -82,6 +82,29 @@ default, but you can choose to override it here.  Possible choices:
 
 Default: The storage class from the original object in the source bucket.
 
+#### --listFile
+Read a list of keys to copy from a file rather than the contents of the source
+bucket.  File must contain line-delimited keys.  Use `-` to read from STDIN.
+
+```
+--listFile="files-to-copy.txt"
+```
+
+Default:  None.  Directory listing will be read from bucket by default.
+
+#### --maxListBufferSize
+Set the size of the buffer of keys to copy.  Normally you don't need to set
+this, but it may come in handy if you are using `--listFile` with STDIN and
+have a tempermental application upstream that you need to deal with.
+Increasing this value increases memory and CPU usage, but it should be
+fairly large so that keys are ready to be copied.
+
+```
+--maxListBufferSize=25000
+```
+
+Default:  10000
+
 #### --sslEnabled
 You can choose to enable TLS/SSL connections.  There is some overhead with
 this option, and it is disabled by default.  Note that if you do not use SSL,
@@ -117,3 +140,13 @@ copying from an arbitrary key in the bucket.
 ```
 
 Default:  None.  Bucket copying starts from beginning by default.
+
+#### --noErrorOutput
+Normally, errors on copying will be output from the application.  This switch
+disables that.
+
+```
+--noErrorOutput
+```
+
+Default: false (errors are output)
