@@ -1,10 +1,13 @@
 #! /usr/bin/env node
 
 var AWS = require('aws-sdk');
+var fs = require('fs');
 var http = require('http');
+var LineStream = require('byline').LineStream;
 var yargs = require('yargs');
 
 var s3;
+var listFile;
 var objectsToCopy = [];
 var maxRequests;
 var currentRequests = 0;
@@ -32,68 +35,93 @@ function outputStatus() {
   });
 }
 
-function startRequest() {
-  currentRequests++;
-  var objectToCopy = objectsToCopy.pop();
+function checkKeyMatch(object) {
+  if (!argv.keymatch) {
+    return object;
+  } else {
+    if (object.Key.match(argv.keyMatch)) {
+      return object;
+    } else {
+      return false;
+    }
+  }
+}
 
-  s3.copyObject({
-    Bucket: argv.target,
-    CopySource: encodeURIComponent(argv.source) + '/' + objectToCopy.Key,
-    Key: objectToCopy.Key,
-    ACL: argv.acl,
-    MetadataDirective: 'COPY',
-    StorageClass: argv.storageClass || objectToCopy.StorageClass
+function getNextListChunk() {
+  // Read list of objects to copy from source bucket
+  listInProgress = true;
+  
+  s3.listObjects({
+    Bucket: argv.source,
+    Marker: nextMarker
   }, function (err, data) {
     if (err) {
-      console.log('Error with ' + objectToCopy.Key, err);
-      progress.failed++;
-    } else {
-      progress.succeeded++;
-      progress.bytesTransferred += objectToCopy.Size
+      console.log('Fatal error while listing objects', err);
+      process.exit(1);
     }
     
-    currentRequests--;
-    setImmediate(startRequests);
+    if (data) {
+      data.Contents.forEach(function (object) {
+        if (checkKeyMatch(object)) {
+          objectsToCopy.push(object);
+        }
+      });
 
+      if (data.IsTruncated) {
+        nextMarker = data.Contents[data.Contents.length-1].Key;
+      } else {
+        nextMarker = false;
+      }  
+    }
+    listInProgress = false;
+    startRequests();
   });
+  
 }
 
 function startRequests() {
-  if (!listInProgress && objectsToCopy.length < 10000 && nextMarker !== false) {
-    listInProgress = true;
-    s3.listObjects({
-      Bucket: argv.source,
-      Marker: nextMarker
-    }, function (err, data) {
-      if (err) {
-        console.log('Fatal error while listing objects', err);
-        process.exit(1);
-      }
-      
-      if (data) {
-        if (argv.keyMatch) {
-          data.Contents.forEach(function (object) {
-            if (object.Key.match(argv.keyMatch)) {
-              objectsToCopy.push(object);
-            }
-          });
-        } else {
-          objectsToCopy = objectsToCopy.concat(data.Contents);
-        }
-
-        if (data.IsTruncated) {
-          nextMarker = data.Contents[data.Contents.length-1].Key;
-        } else {
-          nextMarker = false;
-        }  
-      }
-      listInProgress = false;
-      startRequests();
-    });
+  if (listFile) {
+    // Use a file list of keys to copy
+    if (objectsToCopy.length >= argv.maxListBufferSize) {
+      listFile.pause();
+    } else {
+      listFile.resume();
+    }
+    
+  } else {
+    // Get directory listing from S3
+    if (!listInProgress && objectsToCopy.length < argv.maxListBufferSize && nextMarker !== false) {
+      getNextListChunk();
+    }
+    
   }
 
   while (currentRequests <= maxRequests && objectsToCopy.length) {
-    startRequest();
+    currentRequests++;
+    var objectToCopy = objectsToCopy.pop();
+
+    s3.copyObject({
+      Bucket: argv.target,
+      CopySource: encodeURIComponent(argv.source) + '/' + objectToCopy.Key,
+      Key: objectToCopy.Key,
+      ACL: argv.acl,
+      MetadataDirective: 'COPY',
+      StorageClass: argv.storageClass || objectToCopy.StorageClass
+    }, function (err, data) {
+      if (err) {
+        if (!argv.noErrorOutput) {
+          console.log('Error with ' + objectToCopy.Key, err);
+        }
+        progress.failed++;
+      } else {
+        progress.succeeded++;
+        progress.bytesTransferred += objectToCopy.Size
+      }
+      
+      currentRequests--;
+      setImmediate(startRequests);
+
+    });
   }
 }
 
@@ -120,10 +148,19 @@ var argv = yargs
   .boolean('sslEnabled')
   .describe('sslEnabled', 'Enable TLS/SSL wrapping for S3 connections')
   .default('sslEnabled', false)
+  
+  .describe('listFile', 'Read a list of keys to copy from a file rather than the contents of the source bucket')
+  
+  .describe('maxListBufferSize', 'The number of objects keep in the copy queue before reading from the source list again')
+  .default('maxListBufferSize', 10000)
 
   .describe('keyMatch', 'RegEx to match the keys of objects that will be copied')
 
   .describe('marker', 'Object key to start LIST operations after (to resume an interrupted bucket copy)')
+  
+  .boolean('noErrorOutput')
+  .describe('noErrorOutput', 'Disable error message output to STDOUT')
+  .default('noErrorOutput', false)
 
   .help('h')
   .alias('h', 'help')
@@ -138,6 +175,29 @@ nextMarker = argv.marker || null;
 
 AWS.config.sslEnabled = argv.sslEnabled;
 var s3 = new AWS.S3();
+
+if (argv.listFile) {
+  listFile = new LineStream();
+  
+  if (argv.listFile === '-') {
+    process.stdin.pipe(listFile);
+  } else {
+    fs.createReadStream(argv.listFile, {flags: 'r'}).pipe(listFile);
+  }
+  
+  // Read list of objects to copy from a file
+  listFile.on('data', function (line) {
+    var newObject = {
+      Key: line.toString(),
+      StorageClass: 'STANDARD',
+      Size: 0
+    };
+    if (checkKeyMatch(newObject)) {
+      objectsToCopy.push(newObject);
+    }
+    startRequests();
+  });
+}
 
 startRequests();
 
