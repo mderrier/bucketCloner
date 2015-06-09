@@ -1,6 +1,6 @@
 {
   "name": "bucket-cloner",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Copy your S3 buckets crazy fast!",
   "main": "app.js",
   "scripts": {
