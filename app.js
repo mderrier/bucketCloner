@@ -174,7 +174,7 @@ http.globalAgent.maxSockets = argv.maxSockets;
 nextMarker = argv.marker || null;
 
 AWS.config.sslEnabled = argv.sslEnabled;
-var s3 = new AWS.S3();
+var s3 = new AWS.S3({signatureVersion: 'v4'});
 
 if (argv.listFile) {
   listFile = new LineStream();
