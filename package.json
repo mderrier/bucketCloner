@@ -13,7 +13,7 @@
   "author": "Brad Isbell <bisbell@homefinder.com>",
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.1.26",
+    "aws-sdk": "^2.7.21",
     "byline": "^4.2.1",
     "yargs": "^3.8.0"
   },
@@ -23,6 +23,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:Homefinder/bucketCloner.git"
+    "url": "https://github.com:mderrier/bucketCloner.git"
   }
 }
